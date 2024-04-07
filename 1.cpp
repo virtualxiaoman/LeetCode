@@ -4,6 +4,7 @@
 
 using namespace std;
 
+// 目标：查找另一数字对应的数组下标。因此使用哈希表存储已经遍历过的数字。
 class Solution {
 public:
     vector<int> twoSum(vector<int> &nums, int target) {
@@ -22,7 +23,7 @@ public:
 
 int main() {
     vector<int> nums = {2, 7, 11, 15};
-    int target = 9;
+    int target = 26;
 
     Solution solution;
     vector<int> result = solution.twoSum(nums, target);
