@@ -377,3 +377,307 @@ public:
 ```
 这个双指针是传统的方法，跟栈类似。
 `resize(num)`函数是将字符串的长度调整为`num`，多余的部分会被删除；缺少的部分会用空字符填充。
+
+
+## 2.5 有序数组的平方
+给你一个按 非递减顺序 排序的整数数组 `nums`，返回 每个数字的平方 组成的新数组，要求也按 非递减顺序 排序。
+```cpp
+// 977.cpp
+vector<int> sortedSquares(vector<int> &nums) {
+    int size = nums.size(), curr = size - 1;  // curr是当前位置
+    vector<int> ans(size);  // 初始化一个大小为size的数组
+    for (int left = 0, right = size - 1; left <= right; curr--) {
+        if (nums[right] >= -nums[left]) {
+            ans[curr] = nums[right] * nums[right];
+            right--;
+        } else {
+            ans[curr] = nums[left] * nums[left];
+            left++;
+        }
+    }
+    return ans;
+}
+```
+因为两侧的数据是最大的，所以从两侧开始比较，然后将较大的平方值放在`ans`的末尾。
+
+对于条件判断处的证明：不妨记`nums[right]`为`a`，`nums[left]`为`b`，那么$a \geq -b$有三种情况：
+1. $a \geq -b \geq 0$，此时$a^2 \geq a\cdot (-b) \geq (-b)^2$；
+2. $a \geq 0 \geq -b$，此时$a, b$同号，由于`nums`是非递减的而`right>=left`，所以$a \geq b$；
+3. $0 \geq a \geq -b$，该情况($b\geq 0 \geq a$)不可能出现，因为`nums`是非递减的。
+注：为了理解简单，将条件判断改为`nums[right] * nums[right] >= nums[left] * nums[left]`也是可以的。
+
+
+## 2.6 长度最小的子数组
+给定一个含有 $n$ 个正整数的数组和一个正整数 `target` 。
+找出该数组中满足其总和大于等于 `target` 的长度最小的子数组$[\text{nums}_l, \text{nums}_{l+1}, ..., \text{nums}_{r-1}, \text{nums}_r]$ ，并返回其长度。如果不存在符合条件的子数组，返回 $0$ 。
+
+```cpp
+// 209.cpp
+int minSubArrayLen(int target, vector<int> &nums) {
+    int size = nums.size();
+    int slow = 0, fast = 0, ans = INT_MAX, sum = nums[slow];
+    while (fast < size) {
+        if (sum >= target) {
+            ans = min(ans, fast - slow + 1);
+            sum -= nums[slow++];  // 窗口左侧右滑，减小sum
+        } else {
+            if (++fast < size)
+                sum += nums[fast];  // 窗口右侧右滑，增大sum
+        }
+    }
+    if (ans == INT_MAX)
+        return 0;  // 不存在符合条件的子数组
+    return ans;
+}
+```
+
+注：条件改为`while (fast < size && slow <= fast)`可以更快，因为一旦slow超过fast就说明有一个元素刚好比target大，所以ans肯定是1，不可能更小了。不写`slow <= fast`也是可以的，因为当`slow++`后`sum`变为$0$，那`fast`肯定会++了。
+
+可以理解为左右指针中间窗口的`sum`为两指针的`共同财产`，就是右指针挣钱(往右移动)，当共同财产大过`target`时记录两指针距离，结果左指针挥霍(往右移动)，花钱到`sum`又小过`target`，此时右指针不得不再开始赚钱(向右移动)。周而复始，最后取左右指针离得最近的时候。
+
+> 由于子数组越长，包含的元素越多，越不满足题目要求；反之，子数组越短，包含的元素越少，越满足题目要求。有这种单调性的题目，可以用滑动窗口解决。
+
+## 2.7 水果成篮
+`fruits[i]` 是第 `i` 棵树上的水果种类 。给定一个整数数组 `fruits`，你只能选择两种类型的水果，且必须连续采摘（从某棵树开始，向右连续采摘），求能收集的最大水果数。
+```cpp
+// 904.cpp
+int totalFruit(vector<int> &fruits) {
+    int size = fruits.size();
+    unordered_map<int, int> cnt;
+    int left = 0, ans = 0;
+    for (int right = 0; right < size; ++right) {
+        ++cnt[fruits[right]];  // 将当前水果fruits[right]加入哈希表cnt，并增加其计数。
+        while (cnt.size() > 2) {
+            auto it = cnt.find(fruits[left]); // 找到左边界水果在哈希表中的位置
+            --it->second;  // 不断移动左边界left，减少当前左边界水果对应的计数
+            if (it->second == 0) {
+                cnt.erase(it);  // 如果某种水果计数为0则从哈希表中移除，直到哈希表大小不超过2，则窗口调整完毕。
+            }
+            ++left;  // 左边界右移
+        }
+        ans = max(ans, right - left + 1);  // 窗口大小为right - left + 1
+    }
+    return ans;
+}
+```
+`first`与`second`是`pair`的第一,二个元素，`first`是key，`second`是value。当然，对应代码可以改为：
+```cpp
+            int out = fruits[left];
+            cnt[out]--;
+            if (cnt[out] == 0)
+                cnt.erase(out);
+```
+
+因为题目限制$1\le $ `fruits.length` $\le 10^5$，所以可以直接用数组代替哈希表，只需要修改种类总数的判断：
+```cpp
+// 904_2.cpp
+int totalFruit(vector<int> &fruits) {
+    int size = fruits.size();
+    int cnt[100001] = {0}; // 1 <= fruits.length <= 10^5
+    int left = 0, ans = 0, kinds = 0;  // kinds记录当前水果种类的总数
+    for (int right = 0; right < size; ++right) {
+        if (cnt[fruits[right]] == 0)
+            ++kinds;  // 水果种类的数量为0就增加
+        ++cnt[fruits[right]];
+        while (kinds > 2) {
+            int out = fruits[left];
+            cnt[out]--;
+            if (cnt[out] == 0)
+                --kinds;  // 水果种类的数量为0就删除掉
+            ++left;
+        }
+        ans = max(ans, right - left + 1);
+    }
+    return ans;
+}
+```
+
+## 2.8 最小覆盖子串
+给你一个字符串 `s` 、一个字符串 `t` 。返回 `s` 中涵盖 `t` 所有字符的最小子串。如果 `s` 中不存在涵盖 `t` 所有字符的子串，则返回空字符串 `""` 。
+
+```cpp
+// 76.cpp
+class Solution {
+    // 辅助函数：判断当前窗口是否覆盖了t中的所有字符
+    bool is_covered(int cnt_s[], int cnt_t[]) {
+        for (int i = 'A'; i <= 'Z'; i++)
+            if (cnt_s[i] < cnt_t[i])
+                return false;  // 当前窗口中的字符数量不足，返回false
+        for (int i = 'a'; i <= 'z'; i++)
+            if (cnt_s[i] < cnt_t[i])
+                return false;
+        return true;
+    }
+public:
+    string minWindow(string s, string t) {
+        int size = s.length();
+        int ans_left = -1, ans_right = size;  // 初始化最小窗口的左右边界为无效值
+        int cnt_s[128]{};  // 记录s子串(当前窗口)中字符的出现次数，ASCII范围0-127
+        int cnt_t[128]{};  // t中字符的出现次数
+        for (char c: t)
+            cnt_t[c]++;  // 统计t中每个字符的出现次数
+        int left = 0;
+        for (int right = 0; right < size; right++) { // 移动子串右端点
+            cnt_s[s[right]]++; // 右端点字符移入子串
+            while (is_covered(cnt_s, cnt_t)) { // 涵盖
+                if (right - left < ans_right - ans_left) { // 找到更短的子串
+                    ans_left = left;
+                    ans_right = right; // 记录此时的左右端点
+                }
+                cnt_s[s[left]]--; // 左端点字母移出子串
+                left++;  // 收缩窗口
+            }
+        }
+        return ans_left < 0 ? "" : s.substr(ans_left, ans_right - ans_left + 1);  // [ans_left, ans_right]
+    }
+};
+```
+该方法还是传统的滑动窗口，只是这里使用的**缩小窗口的判断条件**是`is_covered`函数，比之前复杂一点；另外还需要**记录最小窗口的左右边界**。
+
+下面的方法记录**差异**`cnt`，再用`less`记录窗口内有多少种字符的出现次数小于`t`，这样就可以**直接判断**是否覆盖了`t`中的所有字符，而不需要每次都遍历比较，将时间复杂度从$O(|\sum| \cdot s + t)$降低到$O(|\sum| + s + t)$。
+
+```cpp
+// 76_2.cpp
+string minWindow(string s, string t) {
+    int size = s.length();
+    int ans_left = -1, ans_right = size;
+    int cnt[128]{};  // 统计t中每个字符的出现次数
+    int less = 0;  // 记录需要覆盖的字符种类数
+    for (char c : t) {
+        if (cnt[c] == 0)
+            less++; //  less为t中的不同字母个数
+        cnt[c]++;
+    }
+    int left = 0;
+    for (int right = 0; right < size; right++) {
+        char r_c = s[right];
+        cnt[r_c]--; // 右侧字符移入窗口，差异减少
+        if (cnt[r_c] == 0)
+            less--;  // 原来窗口内 r_c 的出现次数比 t 的少，现在一样多，那就是满足要求了
+        while (less == 0) { // 涵盖：所有字母的出现次数都是 >=
+            if (right - left < ans_right - ans_left) { // 找到更短的子串
+                ans_left = left;
+                ans_right = right;
+            }
+            char l_c = s[left];
+            if (cnt[l_c] == 0)
+                less++;  // 左边界字符移出窗口前，若其差异为0，移出后会缺少该种类
+            cnt[l_c]++; // 左侧字符移出窗口，差异增加
+            left++;
+        }
+    }
+    return ans_left < 0 ? "" : s.substr(ans_left, ans_right - ans_left + 1);
+}
+```
+虽然临界条件都是`cnt[c]=0`，但`cnt[r_c] == 0`是在`cnt[r_c]--`之后，代表着`r_c`的出现次数比`t`的少，在差异`--`后就刚好满足要求；而`cnt[l_c] == 0`是在`cnt[l_c]++`之前，代表着`l_c`的出现次数和`t`一样多，差异`++`后就不满足要求了。因此前者是`less--`，后者是`less++`。
+
+
+# 3. 其他
+## 3.1 螺旋矩阵 II
+给你一个正整数 $n$ ，生成一个包含 $1$ 到 $n^2$ 所有元素，且元素按顺时针顺序螺旋排列的 $n \times n$ 正方形矩阵 `matrix` 。
+```cpp
+// 59.cpp
+vector<vector<int>> generateMatrix(int n) {
+    int cur = 1, n2 = n * n;  // cur是当前生成的元素
+    int turn = 0;  // 当前轮次
+    vector<vector<int>> ans(n, vector<int>(n, 0));
+    for (; cur <= n2; turn++) {
+        for (int i = turn; i <= n - 1 - turn; i++)
+            ans[turn][i] = cur++;
+        for (int i = turn + 1; i <= n - 1 - turn; i++)
+            ans[i][n - 1 - turn] = cur++;
+        for (int i = n - 2 - turn; i >= turn; i--)
+            ans[n - 1 - turn][i] = cur++;
+        for (int i = n - 2 - turn; i >= turn + 1; i--)
+            ans[i][turn] = cur++;
+    }
+    return ans;
+}
+```
+上述写法采用**左闭右闭**区间，可由`turn=0`的图像递推得出`turn=t`轮次的边界。注意到每轮边界的左右范围都减$1$，所以使用`turn`是合理的：
+<div style="display: flex; justify-content: center; align-items: center;">
+    <div style="text-align: center;">
+        <img src="./drawio/螺旋矩阵II.png" style="width: 80%;"/>
+    </div>
+</div>
+
+下述写法采用**左闭右开**区间，如图：
+
+<div style="display: flex; justify-content: center; align-items: center;">
+    <div style="text-align: center;">
+        <img src="./drawio/螺旋矩阵II-2.png" style="width: 80%;"/>
+    </div>
+</div>
+
+其在形式上更规整，因为每一轮的四段的长度是相等的的，代码如下：
+
+```cpp
+// 59_2.cpp
+vector<vector<int>> generateMatrix(int n) {
+    int cur = 1, n2 = n * n;  // cur是当前生成的元素
+    int turn = 0;  // 当前轮次
+    vector<vector<int>> ans(n, vector<int>(n, 0));
+    for (; cur < n2; turn++) {
+        for (int i = turn; i < n - 1 - turn; i++)
+            ans[turn][i] = cur++;
+        for (int i = turn; i < n - 1 - turn; i++)
+            ans[i][n - 1 - turn] = cur++;
+        for (int i = n - 1 - turn; i > turn; i--)
+            ans[n - 1 - turn][i] = cur++;
+        for (int i = n - 1 - turn; i > turn; i--)
+            ans[i][turn] = cur++;
+    }
+    if (n % 2 != 0) {
+        ans[n / 2][n / 2] = cur;
+    }
+    return ans;
+}
+```
+
+注意有区别：这里写的是`cur < n2`，并有额外的`n % 2 != 0`的判断。
+首先应该了解的是：记最后一次`turn`$=T$,那么有$T = \left \lfloor n \right \rfloor $，问题出在$n$为奇数的时候，$2T+1=n$，所以最后一次`turn`的时候，使用`cur < n2`会导致`ans[n/2][n/2]`没有被赋值。
+
+以 **`n=3`** 为例，未被赋值的是`ans[1][1]=5`（此时$T=1$，该行被赋值的元素有$2\times T = 2$个，所以剩中间那个未被赋值）。
+对于代码1：`int i = turn; i <= n - 1 - turn;`，其循环的区间长度为$n-1-T-T+1$，由于$2T+1=n$，那么**该循环能进行一次**，所以`ans[1][1]=5`被赋值。对于`int i = turn + 1; i <= n - 1 - turn;`，循环的区间长度为$0$，所以不会进入循环，后面类似。（其实可以从图上看出第一段的长度比第二三段长$1$）
+对于代码2：`int i = turn; i < n - 1 - turn;`，其循环的区间长度为$n-1-T-T=0$，所以**不会进入循环**，后面类似。（从图上可以看出1~4段的长度均相等）也就是说，如果写为`cur < n2`，那么会一直跳过循环，导致`cur`无法`++`，因此死循环。
+
+
+注：**二维矩阵的输出模版代码**：
+```cpp
+for (auto &an: ans) { // 遍历每一行
+    for (int j: an) { // 遍历每一列
+        cout << j << " ";
+    }
+    cout << endl;
+}
+```
+
+
+## 3.2 螺旋矩阵
+给你一个 $m$ 行 $n$ 列的矩阵 `matrix` ，请按照顺时针螺旋顺序 ，返回矩阵中的所有元素。
+
+该题的判断条件与3.1基本一致，仅多了`m≠n`的情况：
+```cpp
+// 54.cpp
+vector<int> spiralOrder(vector<vector<int>> &matrix) {
+    int m = matrix.size();  // 行数
+    int n = matrix[0].size();  // 列数
+    int cur = 1, mn = m * n;  // cur是当前读取的元素
+    int turn = 0;  // 当前轮次
+    vector<int> ans;
+    for (; cur <= mn; turn++) {
+        for (int i = turn; i <= n - 1 - turn; i++, cur++)
+            ans.push_back(matrix[turn][i]);
+        for (int i = turn + 1; i <= m - 1 - turn; i++, cur++)
+            ans.push_back(matrix[i][n - 1 - turn]);
+        if (cur > mn)
+            break;  // 以n>m为例，此时还能横着走一次，但不能再转弯走回去了（不然这一行就会重复输出）
+        for (int i = n - 2 - turn; i >= turn; i--, cur++)
+            ans.push_back(matrix[m - 1 - turn][i]);
+        for (int i = m - 2 - turn; i >= turn + 1; i--, cur++)
+            ans.push_back(matrix[i][turn]);
+    }
+    return ans;
+}
+```
+这里多了个条件判断是其实与3.1方法二中对中心点的处理一样的逻辑，在转完圈后单独考虑最后的剩的那一行或一列。而使用`cur <= mn`的条件应该是判断不要多考虑了那一行或一列。
